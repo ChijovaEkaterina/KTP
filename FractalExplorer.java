@@ -19,6 +19,7 @@ public class FractalExplorer {
     //Целое число «размер экрана», которое является шириной и высотой
     //отображения в пикселях. (
     private int size;
+    private int rowRemaining;
     //Ссылка JImageDisplay, для обновления отображения в разных
     //методах в процессе вычисления фрактала
     private JImageDisplay display;
@@ -28,6 +29,9 @@ public class FractalExplorer {
     //Объект Rectangle2D.Double, указывающий диапазона комплексной
     //плоскости, которая выводится на экран.
     private Rectangle2D.Double range;
+    private JComboBox comboBox = new JComboBox();
+    private JButton saveButton = new JButton("Save");
+    private JButton resetButton = new JButton("Reset");
 
     //конструктор, который принимает значение
     //размера отображения в качестве аргумента, затем сохраняет это значение в
@@ -95,30 +99,21 @@ public class FractalExplorer {
         frame.setVisible(true);
         frame.setResizable(false);
     }
-
+    private void enableUI(boolean val) {
+        comboBox.setEnabled(val);
+        resetButton.setEnabled(val);
+        saveButton.setEnabled(val);
+    }
     //для вывода на экран фрактала
     private void drawFractal (){
         //Этот метод должен циклически проходить через каждый пиксель в отображении
-        for (int x=0; x<size; x++) {
-            for (int y = 0; y < size; y++) {
-                double xCoord = FractalGenerator.getCoord (range.x, range.x + range.width, size, x);
-                double yCoord = FractalGenerator.getCoord (range.y, range.y + range.height, size, y);
-                int iteration=fractal.numIterations(xCoord, yCoord);
-                //Если число итераций равно -1 (т.е. точка не выходит за границы,
-                //установите пиксель в черный цвет (для rgb значение 0). Иначе выберите
-                //значение цвета, основанное на количестве итераций.
-                if (iteration == -1) {
-                    display.drawPixel(x, y, 0);
-                }
-                else {
-                    float hue = 0.7f + (float) iteration / 200f;
-                    int rgbColor = Color.HSBtoRGB(hue, 1f, 1f);
-
-                    display.drawPixel(x, y, rgbColor);
-                }
-            }
+        rowRemaining = size;
+        enableUI(false);
+        for(int i = 0; i < size; i++)
+        {
+            FractalWorker fractalWorker = new FractalWorker(i);
+            fractalWorker.execute();
         }
-        display.repaint();
     }
 
     //внутренний класс для обработки событий
@@ -131,6 +126,47 @@ public class FractalExplorer {
         public void actionPerformed(java.awt.event.ActionEvent e) {
             fractal.getInitialRange(range);
             drawFractal();
+        }
+    }
+
+    private class FractalWorker extends SwingWorker<Object, Object>
+    {
+        private int y;
+        private int[] rgb;
+
+        public FractalWorker(int y)
+        {
+            this.y=y;
+        }
+
+        @Override
+        protected Object doInBackground() throws Exception {
+            rgb=new int[size];
+            for(int i = 0; i < size; i++)
+            {
+                double xCoord = FractalGenerator.getCoord(range.x,range.x + range.width, size, i);
+                double yCoord = FractalGenerator.getCoord(range.y,range.y + range.height, size, y);
+                int iter = fractal.numIterations(xCoord,yCoord);
+                if (iter == -1)rgb[i]=0;
+                else
+                {
+                    float hue = 0.7f + (float)iter / 200f;
+                    rgb[i] =Color.HSBtoRGB(hue,1f,1f);
+                }
+
+            }
+            return null;
+        }
+
+        protected void done()
+        {
+            for(int i = 0; i < size; i++)
+            {
+                display.drawPixel(i,y,rgb[i]);
+            }
+            display.repaint(0,0,y,size,1);
+            rowRemaining--;
+            if(rowRemaining == 0) enableUI(true);
         }
     }
 
